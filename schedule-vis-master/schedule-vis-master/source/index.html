@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>EDF and RMA Scheduling</title>
+  <style>
+    .task-box {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      line-height: 30px;
+      text-align: center;
+      margin: 1px;
+      color: white;
+      font-weight: bold;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h2>EDF and RMA Scheduling</h2>
+  <label># Process Tasks: <input type="number" id="numProcesses" value="5" /></label>
+  <button onclick="generateForm()">Generate processes</button>
+  <div id="inputForm"></div>
+  <button onclick="runEDF()">Run EDF Simulation</button>
+  <button onclick="runRMA()">Run RMA Simulation</button>
+  <div id="output"></div>
+
+  <script>
+
+    function generateForm() {
+      const count = parseInt(document.getElementById("numProcesses").value);
+      const form = document.getElementById("inputForm");
+      form.innerHTML = "";
+
+      for (let i = 0; i < count; i++) {
+        form.innerHTML += `
+          <div>
+            Task ${i + 1} 
+            <input placeholder="Name" id="name${i}" value="P${i+1}" />
+            Arrival <input type="number" id="arrival${i}" value="${i}" />
+            Duration <input type="number" id="duration${i}" value="2" />
+            Deadline <input type="number" id="deadline${i}" value="${(i+1)*5}" />
+            Period <input type="number" id="period${i}" value="${(i+1)*5}" />
+          </div>
+        `;
+      }
+    }
+
+    function getTasks() {
+      const count = parseInt(document.getElementById("numProcesses").value);
+      const tasks = [];
+      for (let i = 0; i < count; i++) {
+        tasks.push({
+          name: document.getElementById(`name${i}`).value || `P${i+1}`,
+          arrival: parseInt(document.getElementById(`arrival${i}`).value),
+          duration: parseInt(document.getElementById(`duration${i}`).value),
+          deadline: parseInt(document.getElementById(`deadline${i}`).value),
+          period: parseInt(document.getElementById(`period${i}`).value)
+        });
+      }
+      return tasks;
+    }
+
+    function createJobs(tasks, simTime) {
+      const jobs = [];
+      tasks.forEach(task => {
+        for (let t = task.arrival; t < simTime; t += task.period) {
+          jobs.push({
+            name: task.name,
+            arrival: t,
+            deadline: t + task.deadline,
+            duration: task.duration,
+            remaining: task.duration,
+            period: task.period
+          });
+        }
+      });
+      return jobs;
+    }
+
+    function runEDF() {
+      const tasks = getTasks();
+      const SIM_TIME = Math.max(...tasks.map(t => t.arrival + t.period * 3));
+      const jobs = createJobs(tasks, SIM_TIME).sort((a, b) => a.arrival - b.arrival);
+      const schedule = [];
+
+      for (let t = 0; t < SIM_TIME; t++) {
+        const available = jobs.filter(job => job.arrival <= t && job.remaining > 0);
+        const ready = available.sort((a, b) => a.deadline - b.deadline);
+        if (ready.length > 0) {
+          ready[0].remaining -= 1;
+          schedule.push(ready[0].name);
+        } else {
+          schedule.push("IDLE");
+        }
+      }
+
+      drawSchedule(schedule);
+    }
+
+    function runRMA() {
+      const tasks = getTasks();
+      const SIM_TIME = Math.max(...tasks.map(t => t.arrival + t.period * 3));
+      const jobs = createJobs(tasks, SIM_TIME).sort((a, b) => a.arrival - b.arrival);
+      const schedule = [];
+
+      for (let t = 0; t < SIM_TIME; t++) {
+        const available = jobs.filter(job => job.arrival <= t && job.remaining > 0);
+        const ready = available.sort((a, b) => a.period - b.period);
+        if (ready.length > 0) {
+          ready[0].remaining -= 1;
+          schedule.push(ready[0].name);
+        } else {
+          schedule.push("IDLE");
+        }
+      }
+
+      drawSchedule(schedule);
+    }
+
+    function drawSchedule(schedule) {
+      const output = document.getElementById("output");
+      const colors = {};
+      let colorIndex = 0;
+      const colorPalette = [
+        "#1abc9c", "#3498db", "#9b59b6", "#e67e22", "#e74c3c",
+        "#2ecc71", "#34495e", "#f39c12", "#16a085", "#7f8c8d"
+      ];
+
+      output.innerHTML = "";
+
+      schedule.forEach((task, i) => {
+        if (!colors[task]) {
+          colors[task] = colorPalette[colorIndex % colorPalette.length];
+          colorIndex++;
+        }
+
+        const div = document.createElement("div");
+        div.className = "task-box";
+        div.style.backgroundColor = colors[task];
+        div.innerText = task === "IDLE" ? "--" : task;
+        output.appendChild(div);
+      });
+    }
+
+    // Auto-generate 5 by default
+    window.onload = generateForm;
+  </script>
+</body>
+</html>
